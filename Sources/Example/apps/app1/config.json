@@ -1,0 +1,28 @@
+{
+	app_id: "app1",
+	app_name: "AppLocalhost",
+	hosts: [
+		// define host with usage
+		{host: "localhost", usage: "request"},
+		// define host for request
+		"127.0.0.1",
+	],
+	// CORS
+	cors_options: {enabled: true},
+	// Multi-Environments
+	environments: [
+		// define environment with name and detail
+		{name: "foo", config: {
+			attr1: "jade",
+		}},
+		// define environment with name only
+		"bar",
+	],
+	encryptions: [
+		{secret: "0123456789abcdef0123456789abcdef", id: "0123456789abcdef"}
+	],
+	// rest configure for test
+	attr1: "mike",
+	route: {
+	},
+}

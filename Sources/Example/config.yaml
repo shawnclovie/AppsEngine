@@ -1,0 +1,39 @@
+debug_features:
+  all: true
+server:
+  host: 0.0.0.0
+  port: 3000
+resources:
+  default:
+    database:
+      sql:
+        url: postgres://root:root@127.0.0.1:5432/shared
+      nosql:
+        url: mongodb://127.0.0.1:27017/shared
+      sql_readonly:
+        url: postgres://root:root@127.0.0.1:5432/shared
+    redis:
+      shared:
+        url: redis://127.0.0.1:6379
+    object_storage:
+      main:
+        source: aws
+        bucket: dev
+        path: foo
+        region: cn-northwest-1
+        secret_id: # your secret identity
+        secret_key: # your secret key
+      string_format:
+        url: /dev/foo?name=aws&region=cn-northwest-1&secret=SECRET_IDENTITY:SECRET_KEYFORTHEIDENTITY
+        base_url: https://dev.aws-s3/foo
+logger:
+  default:
+    console: {level: debug, stream: stdout}
+    tcp: {level: info, host: 127.0.0.1, port: 2000, tls: false}
+  startup:
+    console: {level: debug, stream: stdout}
+metric:
+  host: 127.0.0.1
+  port: 8125
+timezone: Asia/Shanghai
+# app_source: {object_storage_ref: default.main, path: "/", pull_interval: 1m}
