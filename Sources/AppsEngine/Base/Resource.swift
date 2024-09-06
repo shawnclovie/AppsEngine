@@ -116,14 +116,16 @@ public final class Resource: Sendable {
 	}
 	
 	public struct Config: Sendable {
-		public var groups: [String: GroupConfig]
+		public var groups: [String: GroupConfig] = [:]
 
-		public init(groups: [String : GroupConfig]) {
-			self.groups = groups
+		public init(groups: [GroupConfig] = []) {
+			for group in groups {
+				self.groups[group.id] = group
+			}
 		}
 
 		init(_ config: [String: JSON]) throws {
-			self.init(groups: [:])
+			self.init()
 			for it in config {
 				guard  let cfg = it.value.objectValue else {
 					throw AnyError("group(\(it.key)) should be dictionary")

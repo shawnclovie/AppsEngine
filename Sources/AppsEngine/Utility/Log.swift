@@ -179,7 +179,7 @@ extension Logger: LogHandler {
 	}
 }
 
-public struct Log {
+public struct Log: Sendable {
 	fileprivate enum LevelIndex: UInt8 {
 		case trace, debug, info, notice, warn, error, critical
 	}

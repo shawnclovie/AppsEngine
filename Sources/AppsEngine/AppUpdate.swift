@@ -18,7 +18,7 @@ extension AppConfigUpdator {
 	}
 }
 
-public struct AppConfigUpdateInput {
+public struct AppConfigUpdateInput: Sendable{
 	public let appSource: EngineConfig.AppSource
 	public let rootPath: URL
 	public let logger: Logger

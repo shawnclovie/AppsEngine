@@ -18,7 +18,7 @@ let config = EngineConfig(
 	appSource: .init(localAppsPath: resourceURL.appending(component: EngineConfig.defaultLocalAppDirectory),
 					 pullInterval: .zero),
 	resource: .init(groups: [
-		Keys.default: .init(
+		.init(
 			id: Keys.default,
 			databases: [
 				.init(id: "sql", url: URL(string: "postgres://root:root@127.0.0.1:5432/shared")!),

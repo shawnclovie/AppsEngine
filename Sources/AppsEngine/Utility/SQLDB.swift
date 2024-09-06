@@ -18,6 +18,7 @@ public struct SQLID: RawRepresentable,
 					 CustomStringConvertible,
 					 Hashable,
 					 Codable,
+					 JSONEncodable,
 					 SQLExpression {
 	public static var empty: Self { .init(rawValue: "") }
 	
