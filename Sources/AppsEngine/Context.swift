@@ -35,7 +35,7 @@ public final class Context: Sendable {
 	/// `Request` if serving a request
 	///
 	/// Valid only in endpoint processing context
-	public let request: Request
+	public let request: Request?
 
 	actor Vars {
 		var requestProcessor: RequestProcessor?
@@ -86,8 +86,8 @@ public final class Context: Sendable {
 	let vars = Vars()
 
 	public init(_ engine: Engine,
-		 endpoint: Endpoint?,
-		 request: Request,
+		 endpoint: Endpoint? = nil,
+		 request: Request? = nil,
 		 configSet: AppConfigSet?,
 		 _ config: AppConfig,
 		 requestProcessor: RequestProcessor? = nil,
@@ -104,8 +104,9 @@ public final class Context: Sendable {
 		self.endpoint = endpoint
 		self.request = request
 		debugIgnoreBodyProcess = engine.config.isOn(DebugFeatures.engine_ignoreBodyProcess)
-
-		await vars.set(body: request.body.data, shouldIgnoreBodyProcess ? nil : requestProcessor)
+		if let request {
+			await vars.set(body: request.body.data, shouldIgnoreBodyProcess ? nil : requestProcessor)
+		}
 	}
 
 	public var appID: String { config.appID }
@@ -130,11 +131,18 @@ public final class Context: Sendable {
 	}
 
 	var shouldIgnoreBodyProcess: Bool {
-		debugIgnoreBodyProcess && anyToBool(request.headers[HTTP.Header.x_debug_ignore_body_process]) == true
+		guard debugIgnoreBodyProcess,
+			  let header = request?.headers[HTTP.Header.x_debug_ignore_body_process].first else {
+			return false
+		}
+		return anyToBool(header) == true
 	}
 
 	public func requestBody() async throws -> ByteBuffer? {
-		try await vars.processedBody(request: request)
+		guard let request else {
+			return nil
+		}
+		return try await vars.processedBody(request: request)
 	}
 
 	public func decode<AsType: Decodable>(defaultContentType: HTTPMediaType? = nil) async throws -> AsType {
@@ -148,7 +156,8 @@ public final class Context: Sendable {
 		guard let body = try await requestBody() else {
 			throw WrapError(.bad_request, Error.no_body)
 		}
-		guard let contentType = request.headers.contentType ?? defaultContentType else {
+		guard let request,
+			  let contentType = request.headers.contentType ?? defaultContentType else {
 			throw WrapError(.bad_request, Error.no_content_type)
 		}
 		do {

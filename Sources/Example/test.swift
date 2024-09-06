@@ -73,21 +73,21 @@ struct TestModule: Module {
 				]))
 			}),
 			Endpoint(.get("match", "**"), { ctx in
-				return .text(.ok, "\(ctx.request.parameters.getCatchall())")
+				return .text(.ok, "\(ctx.request?.parameters.getCatchall() as Any)")
 			}),
 			Endpoint([.get("echo"), .post("echo")], name: "echo", { ctx in
-				if ctx.request.headers.contains(name: "throws") == true {
+				if ctx.request?.headers.contains(name: "throws") == true {
 					throw WrapError(.internal, AnyError("throws"))
 				}
 				return .binary(.ok, await ctx.body() ?? .init())
 			}),
 			Endpoint(.get("hello", .var("name")), { ctx in
-				ctx.logger.log(.info, "\(ctx.request.url)")
-				return .text(.ok, ctx.request.parameters.get("name") ?? "<none>")
+				ctx.logger.log(.info, "\(ctx.request?.url as Any)")
+				return .text(.ok, ctx.request?.parameters.get("name") ?? "<none>")
 			}),
 			Endpoint(.get("hello1/:name"), { ctx in
-				ctx.logger.log(.info, "\(ctx.request.url)")
-				return .text(.ok, ctx.request.parameters.get("name") ?? "<none>")
+				ctx.logger.log(.info, "\(ctx.request?.url as Any)")
+				return .text(.ok, ctx.request?.parameters.get("name") ?? "<none>")
 			}),
 			Endpoint(.get("stream"), { ctx in
 				.stream(.ok) { writer in
@@ -139,24 +139,24 @@ struct TestModule: Module {
 			// TODO: proxy as a fixed endpoint
 		], middlewares: [
 			ClosureMiddleware({ ctx in
-				print("\(ctx.request.url) m1 before process")
-				if ctx.request.headers.contains(name: "m1throws") == true {
+				print("\(ctx.request?.url as Any) m1 before process")
+				if ctx.request?.headers.contains(name: "m1throws") == true {
 					throw WrapError(.internal, AnyError("m1throws"))
 				}
 				var res = await ctx.next()
-				print("\(ctx.request.url) m1 after process")
+				print("\(ctx.request?.url as Any) m1 after process")
 				res.headers.replaceOrAdd(name: "m1foo", value: "bar")
 				return res
 			}),
 			ClosureMiddleware({ ctx in
 				// reset config
-				if let env = ctx.request.headers.first(name: Self.headerAppEnv),
+				if let env = ctx.request?.headers.first(name: Self.headerAppEnv),
 				   let config = await ctx.configSet?.environments[env] {
 //					ctx.reset(userID: nil, config: config)
 				}
-				print("\(ctx.request.url) m2 before process")
+				print("\(ctx.request?.url as Any) m2 before process")
 				var res = await ctx.next()
-				print("\(ctx.request.url) m2 after process")
+				print("\(ctx.request?.url as Any) m2 after process")
 				res.headers.replaceOrAdd(name: "m2foo", value: "bar")
 				return res
 			}),
@@ -298,7 +298,7 @@ struct TestModule: Module {
 			throw Errors.database
 		}
 		let dbExec = MongoDBExecutor(db: db, logger: ctx.logger)
-		let res = await dbExec.insert(TestABC(name: ctx.request.body.string ?? "", createTime: .utc))
+		let res = await dbExec.insert(TestABC(name: ctx.request?.body.string ?? "", createTime: .utc))
 		if let err = res.error {
 			throw err
 		} else if res.affectCount == 0 {
@@ -313,7 +313,7 @@ struct TestModule: Module {
 		}
 		let dbExec = MongoDBExecutor(db: db, logger: ctx.logger)
 		var `where` = Document()
-		if let name: String = ctx.request.query[Keys.name] {
+		if let name: String = ctx.request?.query[Keys.name] {
 			`where`[Keys.name] = name
 		}
 		let res = await dbExec.delete(for: TestABC.self, where: `where`)
