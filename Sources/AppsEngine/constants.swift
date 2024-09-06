@@ -7,6 +7,7 @@ extension Keys {
 extension HTTP.Header {
 	public static let x_debug_ignore_body_process = "x-debug-ignore-body-process"
 	public static let x_debug_host = "x-debug-host"
+	public static let x_env = "x-env"
 }
 
 extension DebugFeatures {
@@ -32,6 +33,7 @@ extension Errors {
 	public static let invalid_app_config = Errors("invalid_app_config", .expectationFailed)
 	public static let invalid_engine_config = Errors("invalid_engine_config", .internalServerError)
 	public static let app_not_found = Errors("app_not_found", .badRequest)
+	public static let environment_not_found = Errors("environment_not_found", .badRequest)
 	public static let route_not_found = Errors("route_not_found", .badRequest)
 
 	public static let database = Errors("database", .internalServerError)

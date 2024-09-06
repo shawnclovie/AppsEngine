@@ -67,12 +67,9 @@ let engine = try await Engine(
 					cors: cors,
 					encryptions: [
 						.init(id: "0123456789abcdef", secret: "0123456789abcdef0123456789abcdef"),
-					], raw: [
-						Keys.environments: [
-							[Keys.name: "foo", Keys.config: ["attr1": "jade"]],
-							"bar",
-						],
 					]), modules: input.modules)
+				await appConfig.add(environment: "foo", data: ["attr1": "jade"], modules: input.modules)
+				await appConfig.add(environment: "bar", data: [:], modules: input.modules)
 				await result.testDidFinish(appID: appConfig.core.appID, modifyTime: .utc, .success(appConfig))
 				return result
 			}

@@ -114,18 +114,22 @@ public actor AppConfigSet: Sendable {
 			warnings["(main)"] = warns
 		}
 		if !rawEnvironments.isEmpty {
-			let modsSupportEnv = modules.filter { $0.supportEnvironment }
 			for (env, raw) in rawEnvironments {
 				guard env != core.environment else {
 					continue
 				}
-				let config = core.duplicate(environment: env)
-				if let warns = await parse(with: modsSupportEnv, for: config, environment: (env, raw)) {
-					warnings[env] = warns
-				}
-				environments[env] = config
+				await add(environment: env, data: raw, modules: modules)
 			}
 		}
+	}
+
+	public func add(environment: String, data: [String: JSON], modules: [Module]) async {
+		let modsSupportEnv = modules.filter { $0.supportEnvironment }
+		let config = core.duplicate(environment: environment)
+		if let warns = await parse(with: modsSupportEnv, for: config, environment: (environment, data)) {
+			warnings[environment] = warns
+		}
+		environments[environment] = config
 	}
 
 	private func parse(

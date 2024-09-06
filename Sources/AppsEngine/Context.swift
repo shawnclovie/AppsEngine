@@ -22,7 +22,6 @@ public final class Context: Sendable {
 	private let engine: Engine
 	public let configSet: AppConfigSet?
 	public let config: AppConfig
-	public let userID: String?
 	public let traceID: String
 	public let logger: Logger
 	public let startTime: Time
@@ -86,59 +85,22 @@ public final class Context: Sendable {
 
 	let vars = Vars()
 
-	public convenience init(_ engine: Engine, config: AppConfig, userID: String?, startTime: Time) async {
-		await self.init(
-			engine,
-			endpoint: nil,
-			request: .init(application: engine.application,
-						   on: engine.application.eventLoopGroup.any()),
-			configSet: nil, config: config,
-			requestProcessor: nil,
-			userID: userID, startTime: startTime)
-	}
-
-	public convenience init(_ engine: Engine, configSet: AppConfigSet, userID: String?, startTime: Time) async {
-		await self.init(
-			engine,
-			endpoint: nil,
-			request: .init(application: engine.application,
-						   on: engine.application.eventLoopGroup.any()),
-			configSet: configSet, config: configSet.core,
-			requestProcessor: nil,
-			userID: userID, startTime: startTime)
-	}
-
-	convenience init(
-		request: Request, endpoint: Endpoint,
-		_ engine: Engine, configSet: AppConfigSet,
-		requestProcessor: RequestProcessor?,
-		environment: String?
-	) async {
-		let config = await configSet.config(environment: environment)
-		await self.init(
-			engine, endpoint: endpoint, request: request, configSet: configSet,
-			config: config ?? configSet.core,
-			requestProcessor: requestProcessor,
-			userID: nil,
-			startTime: Time(offset: configSet.core.timeOffset ?? engine.config.timezone.secondsFromGMT()))
-	}
-
-	init(_ engine: Engine,
+	public init(_ engine: Engine,
 		 endpoint: Endpoint?,
 		 request: Request,
-		 configSet: AppConfigSet?, config: AppConfig,
-		 requestProcessor: RequestProcessor?,
-		 userID: String?, startTime: Time
+		 configSet: AppConfigSet?,
+		 _ config: AppConfig,
+		 requestProcessor: RequestProcessor? = nil,
+		 startTime: Time? = nil
 	) async {
 		self.engine = engine
 		self.configSet = configSet
 		self.config = config
-		self.userID = userID
 		traceID = await engine.config.snowflakeNode.generate().base36
+		self.startTime = startTime ?? Time(offset: config.timeOffset ?? engine.config.timezone.secondsFromGMT())
 		self.logger = engine.config.defaultLogger.with(
 			label: "\(config.appID).request.\(traceID)", concat: true,
-			trace: .init(on: startTime))
-		self.startTime = startTime
+			trace: .init(on: self.startTime))
 		self.endpoint = endpoint
 		self.request = request
 		debugIgnoreBodyProcess = engine.config.isOn(DebugFeatures.engine_ignoreBodyProcess)

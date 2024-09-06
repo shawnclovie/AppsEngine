@@ -106,14 +106,19 @@ extension EngineApp {
 	
 	private func serve(to request: Request, webSocket: WebSocket, endpoint: Endpoint, processor: RequestProcessor?) async {
 		let env = Self.environment(from: request)
-		let ctx = await Context(request: request, endpoint: endpoint, engine, configSet: config, requestProcessor: processor, environment: env)
+		guard let config = env == nil ? config.core : await config.config(environment: env) else {
+			try? await webSocket.close(code: .protocolError)
+			return
+		}
+		let ctx = await Context(engine, endpoint: endpoint, request: request, configSet: self.config, config, requestProcessor: processor)
 		await ctx.serve(webSocket: webSocket)
 	}
 
 	private func serve(to request: Request, endpoint: Endpoint, processor: RequestProcessor?) async -> HTTPResponse {
 		let env = Self.environment(from: request)
-		let ctx = await Context(request: request, endpoint: endpoint, self.engine, configSet: self.config, requestProcessor: processor, environment: env)
-		var response = await ctx.serve()
+		let config = env == nil ? config.core : await config.config(environment: env)
+		let ctx = await Context(engine, endpoint: endpoint, request: request, configSet: self.config, config ?? self.config.core, requestProcessor: processor)
+		var response = config == nil ? .error(Errors.environment_not_found) : await ctx.serve()
 		// encode response body if needed
 		if !ctx.shouldIgnoreBodyProcess,
 		   let processor {
@@ -124,7 +129,7 @@ extension EngineApp {
 					.error(Errors.internal.convertOrWrap(error))
 			}
 		}
-		await self.engine.apiMetric?.record(to: ctx, response: response)
+		await engine.apiMetric?.record(to: ctx, response: response)
 		if let err = response.error as? WrapError,
 		   [.database, .internal].contains(err.base) {
 			ctx.logger.log(.error, "internal_error", .init(Keys.url, request.url), .error(err))
@@ -134,7 +139,8 @@ extension EngineApp {
 
 	private func serveShadowRoute(to request: Request, endpoint: Endpoint) async -> Response {
 		let env = Self.environment(from: request)
-		let ctx = await Context(request: request, endpoint: endpoint, engine, configSet: config, requestProcessor: nil, environment: env)
+		let config = env == nil ? config.core : await config.config(environment: env)
+		let ctx = await Context(engine, endpoint: endpoint, request: request, configSet: self.config, config ?? self.config.core, requestProcessor: nil)
 		let response = await ctx.serve()
 		return response.response
 	}
