@@ -161,13 +161,13 @@ public struct PathComponents: Equatable, Sendable {
 		}
 	}
 
-	public func removedFirst(_ count: Int = 1) -> Self {
+	public func removingFirst(_ count: Int = 1) -> Self {
 		var inst = self
 		inst.removeFirst(count)
 		return inst
 	}
 
-	public func removedLast(_ count: Int = 1) -> Self {
+	public func removingLast(_ count: Int = 1) -> Self {
 		var inst = self
 		inst.removeLast(count)
 		return inst
