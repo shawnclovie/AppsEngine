@@ -193,8 +193,13 @@ extension JSON {
 		}
 	}
 
+	@inlinable
+	public subscript(keys: CollectionKey...) -> Self {
+		valueFor(keys: keys[...])
+	}
+
 	public subscript(key: String) -> Self {
-		get { self.valueForKeys([key]) }
+		get { self.valueFor(keys: [.key(key)]) }
 		set {
 			switch self {
 			case .object(var vs):
@@ -205,17 +210,41 @@ extension JSON {
 			}
 		}
 	}
+
+	public enum CollectionKey: ExpressibleByIntegerLiteral, ExpressibleByStringLiteral {
+		case index(_ index: Int)
+		case key(_ key: String)
+
+		public init(stringLiteral value: StringLiteralType) {
+			self = .key(value)
+		}
+
+		public init(integerLiteral value: IntegerLiteralType) {
+			self = .index(value)
+		}
+	}
+
+	@inlinable
+	public func valueFor(keys: CollectionKey...) -> Self {
+		valueFor(keys: keys[...])
+	}
 	
-	public func valueForKeys(_ keys: ArraySlice<String>) -> Self {
-		switch self {
-		case .object(let vs):
-			guard let key0 = keys.first,
-				  let value = vs[key0] else {
+	public func valueFor(keys: ArraySlice<CollectionKey>) -> Self {
+		switch keys.first {
+		case nil:
+			return .null
+		case .index(let index):
+			guard case .array(let array) = self, index < array.count else {
 				return .null
 			}
-			return keys.count == 1 ? value : value.valueForKeys(keys.dropFirst())
-		default:
-			return .null
+			let value = array[index]
+			return keys.count == 1 ? value : value.valueFor(keys: keys.dropFirst())
+		case .key(let key):
+			guard case .object(let vs) = self,
+				  let value = vs[key] else {
+				return .null
+			}
+			return keys.count == 1 ? value : value.valueFor(keys: keys.dropFirst())
 		}
 	}
 	

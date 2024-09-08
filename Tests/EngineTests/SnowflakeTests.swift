@@ -40,12 +40,12 @@ final class SnowflakeTests: XCTestCase {
 		print("epoch of now:", Snowflake.Node.flakeTimestamp(Time(Date())))
 	}
 	
-    func testGenerate() {
+	func testGenerate() async {
 		let count = 1010
 		let node = Snowflake.Node(node: 1)
 		var ids: Set<Snowflake.ID> = []
 		for _ in 0..<count {
-			ids.insert(node.generate())
+			ids.insert(await node.generate())
 		}
 		XCTAssert(ids.count == count)
 		

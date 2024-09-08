@@ -35,7 +35,11 @@ final class JSONTest: XCTestCase {
 
 	func testJSON() throws {
 		var obj = JSON.object(Self.jsonObject)
-		XCTAssertEqual("bar", obj.valueForKeys(["foo", "name", "foo1"]).stringValue)
+		XCTAssert(obj["foo"].objectValue != nil)
+		XCTAssert(obj["foo", "nums"].arrayValue != nil)
+		XCTAssertEqual("bar", obj.valueFor(keys: "foo", "name", "foo1").stringValue)
+		XCTAssertEqual("b", obj.valueFor(keys: "foo", "nums", 2))
+		XCTAssertEqual("b", obj["foo", "nums", 2])
 		XCTAssertEqual(1.1, obj["float"].valueAsDouble)
 		XCTAssertEqual(JSON.null, JSON(from: nil))
 		XCTAssertEqual(JSON.bool(false), JSON(from: false))
@@ -129,7 +133,7 @@ final class JSONTest: XCTestCase {
 	}
 
 	func testLogMeasure() {
-		let log = Log(level: .debug, "abc", [
+		let log = Log(level: .debug, [
 			.init("str", "ocume\\nts/wo\"rks/company/bsto\"neinfo/microservice/swift_base_server/Tests/EngineTests/UtilityTests.swift"),
 			.init("data", Data([0x56, 0x02])),
 			.init("arr", JSON.array([1, 2])),
