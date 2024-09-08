@@ -29,6 +29,7 @@ final class PathComponentsTests: XCTestCase {
 	func testRelative() {
 		let paths = PathComponents.url()
 		XCTAssertEqual("foo/bar", paths.appending("foo", "bar").joined())
+		XCTAssertEqual("foo.bar", paths.appending("foo", "bar").joined(withOtherSeparator: "."))
 		XCTAssertEqual("foo", paths.appending("foo", nil).joined())
 		XCTAssertEqual("bar", paths.appending(nil, "bar").joined())
 		XCTAssertEqual("", paths.appending(nil, nil).joined())
@@ -58,6 +59,7 @@ final class PathComponentsTests: XCTestCase {
 			XCTAssertEqual("o/d/d/f/d", path.joined())
 		}
 		XCTAssertEqual("foo", paths.appending("foo/bar").components[0])
+		XCTAssertEqual("\\foo\\bar", PathComponents(separator: "/", "/foo/bar").joined(withOtherSeparator: "\\"))
 	}
 	
 	func testLastComponent() {

@@ -177,7 +177,7 @@ public struct PathComponents: Equatable, Sendable {
 		components.removeAll()
 	}
 
-	public func joined() -> String {
+	public func joined(withOtherSeparator: String? = nil) -> String {
 		let count = components.count
 		if count == 0 {
 			return ""
@@ -186,6 +186,7 @@ public struct PathComponents: Equatable, Sendable {
 		} else if separator.isEmpty {
 			return components.compactMap { $0 }.joined()
 		}
+		let separator = withOtherSeparator ?? self.separator
 		var lastPath = components[0]
 		var buf = ""
 		buf.reserveCapacity(128)
