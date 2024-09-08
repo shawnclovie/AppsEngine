@@ -87,12 +87,15 @@ public final class Resource: Sendable {
 			 application: Application,
 			 databaseBuilder: Resource.DatabaseBuilder?,
 			 storageBuilder: StorageBuilder?) async throws {
-			databases = try .init(config.databases.map({ it in
+			var databases: [String: Database] = [:]
+			for it in config.databases {
 				guard let builder = databaseBuilder else {
 					throw AnyError("no databaseBuilder given but configured databases")
 				}
-				return (it.key, try it.value.connect(application: application, isDefault: false, databaseBuilder: builder))
-			}), uniquingKeysWith: { l, r in r })
+				let db = try Self.connect(application: application, isDefault: false, groupID: config.id, it.value, databaseBuilder: builder)
+				databases[it.key] = db
+			}
+			self.databases = databases
 			redis = try .init(config.redis.map({ it in
 				(it.key, try it.value.connect(application: application))
 			}), uniquingKeysWith: { l, r in r })
@@ -106,7 +109,20 @@ public final class Resource: Sendable {
 			self.objectStorages = objectStorages
 			self.config = config
 		}
-		
+
+		static func connect(application: Application, isDefault: Bool,
+							groupID: String,
+							_ dbConfig: DatabaseConfig,
+							databaseBuilder: Resource.DatabaseBuilder) throws -> Database {
+			let dbcfg = try databaseBuilder(dbConfig)
+			let dbID = DatabaseID(string: "\(groupID)-\(dbConfig.id)")
+			application.databases.use(dbcfg, as: dbID, isDefault: isDefault)
+			guard let db = application.databases.database(dbID, logger: application.logger, on: application.eventLoopGroup.any()) else {
+				throw AnyError("fetch database(\(dbID.string)) failed")
+			}
+			return db
+		}
+
 		public func sqlDB(of: String) throws -> SQLDB {
 			guard let db = databases[of] else {
 				throw WrapError(.invalid_engine_config, Error.not_found_named_database, [Keys.name: .string(of)])
@@ -238,16 +254,6 @@ public final class Resource: Sendable {
 			self.url = url
 			self.id = id
 			rawData = config
-		}
-
-		func connect(application: Application, isDefault: Bool, databaseBuilder: Resource.DatabaseBuilder) throws -> Database {
-			let dbcfg = try databaseBuilder(self)
-			let dbID = DatabaseID(string: id)
-			application.databases.use(dbcfg, as: dbID, isDefault: isDefault)
-			guard let db = application.databases.database(dbID, logger: application.logger, on: application.eventLoopGroup.any()) else {
-				throw AnyError("fetch database(\(id)) failed")
-			}
-			return db
 		}
 	}
 	
