@@ -15,7 +15,7 @@ let config = EngineConfig(
 	debugFeatures: [Keys.all: .bool(true)],
 	server: .init(port: 3000),
 	timezone: timezone,
-	appSource: .init(localAppsPath: resourceURL.appending(component: EngineConfig.defaultLocalAppDirectory),
+	appSource: .init(localAppsPath: resourceURL.appendingPathComponent(EngineConfig.defaultLocalAppDirectory),
 					 pullInterval: .zero),
 	resource: .init(groups: [
 		.init(

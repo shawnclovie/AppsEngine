@@ -238,9 +238,9 @@ extension JSON {
 
 		public func decode(_ data: Data) throws -> JSON {
 			let decoder = JSONDecoder()
-			#if !os(Linux)
-			decoder.allowsJSON5 = true
-			#endif
+			if #available(macOS 12.0, iOS 15.0, *) {
+				decoder.allowsJSON5 = true
+			}
 			return try decoder.decode(JSON.self, from: data)
 		}
 	}

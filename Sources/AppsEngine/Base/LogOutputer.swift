@@ -25,8 +25,13 @@ public struct LogConsoleOutputer: LogOutputer {
 
 	public func log(_ log: borrowing Log) {
 		let data = log.encodeAsData()
-		try? stream.write(contentsOf: data)
-		try? stream.write(contentsOf: Self.lf)
+		if #available(macOS 10.15.4, *) {
+			try? stream.write(contentsOf: data)
+			try? stream.write(contentsOf: Self.lf)
+		} else {
+			stream.write(data)
+			stream.write(Self.lf)
+		}
 	}
 	
 	private static let lf = Data("\n".utf8)

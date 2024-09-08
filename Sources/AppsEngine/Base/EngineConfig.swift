@@ -74,7 +74,11 @@ public actor EngineConfig: Sendable {
 			}
 			timezone = tz
 		} else {
-			timezone = .gmt
+			if #available(macOS 13, *) {
+				timezone = .gmt
+			} else {
+				timezone = .init(secondsFromGMT: 0)!
+			}
 		}
 		let appSource = AppSource(
 			localAppsPath: localAppDirectory ?? workingDirectory.appendingPathComponent(Self.defaultLocalAppDirectory),

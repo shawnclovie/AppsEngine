@@ -4,8 +4,8 @@ import PackageDescription
 let package = Package(
     name: "AppsEngine",
     platforms: [
-       .macOS(.v13),
-	   .iOS(.v13),
+		.macOS(.v10_15),
+		.iOS(.v13),
     ],
 	products: [
 		.library(name: "AppsEngine", targets: ["AppsEngine"]),
