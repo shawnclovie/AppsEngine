@@ -110,12 +110,12 @@ public actor AppConfigSet: Sendable {
 		}
 		self.rawEnvironments = rawEnvironments
 
-		if let warns = await parse(with: modules, for: core, environment: nil) {
+		if let warns = await parse(with: modules, for: self.core, environment: nil) {
 			warnings["(main)"] = warns
 		}
 		if !rawEnvironments.isEmpty {
 			for (env, raw) in rawEnvironments {
-				guard env != core.environment else {
+				guard env != self.core.environment else {
 					continue
 				}
 				await add(environment: env, data: raw, modules: modules)
@@ -160,18 +160,6 @@ public actor AppConfigSet: Sendable {
 public final class AppConfig: Sendable {
 	public static let mainFile = "config.json"
 
-	private actor CustomDataHolder {
-		private var data: [ObjectIdentifier: any Sendable] = [:]
-
-		public func get<As>(_ configType: As.Type) -> As? {
-			data[ObjectIdentifier(configType)] as? As
-		}
-
-		public func set<As: Sendable>(_ value: As) {
-			data[ObjectIdentifier(As.self)] = value
-		}
-	}
-
 	public let appID: String
 	public let appName: String?
 	public let appGroup: String?
@@ -185,7 +173,7 @@ public final class AppConfig: Sendable {
 	public let encryptions: [String: AppEncryptConfig]
 
 	public let raw: [String: JSON]
-	private let customData = CustomDataHolder()
+	private let customData = TypedObjectHolder()
 
 	public init(
 		appID: String,

@@ -59,3 +59,15 @@ public actor RefActor<Value> {
 		value = newValue
 	}
 }
+
+public actor TypedObjectHolder {
+	private var data: [ObjectIdentifier: any Sendable] = [:]
+
+	public func get<As>(_ configType: As.Type) -> As? {
+		data[ObjectIdentifier(configType)] as? As
+	}
+
+	public func set(_ value: any Sendable) {
+		data[ObjectIdentifier(type(of: value))] = value
+	}
+}

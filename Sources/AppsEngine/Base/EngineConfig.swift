@@ -32,6 +32,8 @@ public actor EngineConfig: Sendable {
 
 	public nonisolated let verboseItems: Set<String>
 
+	private let customData = TypedObjectHolder()
+
 	/// Create config with arguments.
 	///
 	/// `rawData` would also be parsed and parsed config would cover arguments.
@@ -192,7 +194,17 @@ public actor EngineConfig: Sendable {
 	public nonisolated func debugFeature(_ name: String) -> JSON? {
 		debugFeatures?[name]
 	}
-	
+
+	/// Get custom data or parsed config.
+	public func get<As: Sendable>(_ type: As.Type) async -> As? {
+		await customData.get(type)
+	}
+
+	/// Set custom data or parsed config.
+	public func set<As: Sendable>(_ value: As) async {
+		await customData.set(value)
+	}
+
 	public enum Format: String {
 		case json, yaml
 

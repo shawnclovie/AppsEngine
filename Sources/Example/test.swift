@@ -63,7 +63,8 @@ struct TestModule: Module {
 		])
 		var epgTest = Endpoint.Group(endpointPrefix: "test", pathPrefix: "test", endpoints: [
 			Endpoint(.get(""), { ctx in
-				print("initVar:", await TestData.shared.initVar)
+				print("initVar:", await TestData.shared.initVar,
+					  "from engine config:", await ctx.engineConfig.get(TestData.self)?.initVar as Any)
 				let cfg = await ctx.config.get(Config.self)!
 				return .json(.ok, JSON.object([
 					"enc": .array(ctx.config.encryptions.values.map({
@@ -165,7 +166,8 @@ struct TestModule: Module {
 	}
 
 	func resourceDidFinishPrepare(_ engine: Engine) async throws {
-		await TestData.shared.updateVar(1)
+		await TestData.shared.updateVar(Int(engine.config.rawData["service", "test", "test_data_var"].valueAsInt64 ?? 1))
+		await engine.config.set(TestData.shared)
 	}
 
 	struct ProcessA1: EndpointProducer, RequestInvocation {
@@ -318,6 +320,7 @@ struct TestModule: Module {
 	var supportEnvironment: Bool { true }
 	
 	func parseConfig(_ configSet: AppConfigSet, environment: (name: String, raw: [String: JSON])?) async -> AppConfigParseResult? {
+		print("\(Self.self) parseConfig for env \(environment?.name ?? "main")")
 		var config = Config()
 		var raw = environment?.raw["config"]?.objectValue
 		if raw == nil {
@@ -353,7 +356,8 @@ struct RouteModule: Module {
 	var endpoints: [Endpoint] { [] }
 	
 	func parseConfig(_ configSet: AppConfigSet, environment: (name: String, raw: [String: JSON])?) -> AppConfigParseResult? {
-		.init(Config())
+		print("\(Self.self) parseConfig for env \(environment?.name ?? "main")")
+		return .init(Config())
 	}
 	
 	struct Config {

@@ -37,3 +37,6 @@ metric:
   port: 8125
 timezone: Asia/Shanghai
 # app_source: {object_storage_ref: default.main, path: "/", pull_interval: 1m}
+service:
+  test:
+    test_data_var: 34
