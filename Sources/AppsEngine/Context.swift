@@ -99,7 +99,11 @@ public final class Context: Sendable {
 		traceID = await engine.config.snowflakeNode.generate().base36
 		self.startTime = startTime ?? Time(offset: config.timeOffset ?? engine.config.timezone.secondsFromGMT())
 		self.logger = engine.config.defaultLogger.with(
-			label: "\(config.appID).request.\(traceID)", concat: true,
+			label: PathComponents.dot(
+				config.appID,
+				request == nil ? nil : "request",
+				traceID).joined(),
+			concat: true,
 			trace: .init(on: self.startTime))
 		self.endpoint = endpoint
 		self.request = request
