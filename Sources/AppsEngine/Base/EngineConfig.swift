@@ -32,115 +32,81 @@ public actor EngineConfig: Sendable {
 
 	public nonisolated let verboseItems: Set<String>
 
+	/// Create config with arguments.
+	///
+	/// `rawData` would also be parsed and parsed config would cover arguments.
 	public init(
 		workingDirectory: URL,
-		content: Data,
-		format: Format,
-		localAppDirectory: URL? = nil
+		name: String? = nil,
+		debugFeatures: [String : JSON]? = nil,
+		server: APIServer? = nil,
+		timezone: TimeZone? = nil,
+		appSource: AppSource? = nil,
+		localAppDirectory: URL? = nil,
+		resource: Resource.Config? = nil,
+		loggers: [String : Logger]? = nil,
+		metric: Metric.Config? = nil,
+		rawData: JSON = [:]
 	) async throws {
-		let decoded: JSON
+		self.workingDirectory = workingDirectory
+		self.name = rawData[Keys.name].stringValue ?? name ?? "server"
 		do {
-			decoded = switch format {
-			case .json:
-				try JSON.Decoder().decode(content)
-			case .yaml:
-				JSON(from: try Yams.load(yaml: String(decoding: content, as: UTF8.self)))
+			if case .object(let vs) = rawData[Keys.server] {
+				self.server = try APIServer(vs)
+			} else if let server {
+				self.server = server
+			} else {
+				throw AnyError("no server passed or defined")
 			}
-		} catch {
-			throw AnyError("\(Self.self).initialize: decode config(\(format)) failed", wrap: error)
-		}
-		guard case .object(_) = decoded else {
-			throw AnyError("\(Self.self).initialize: content should be dictionary")
-		}
-		try await self.init(workingDirectory: workingDirectory, rawData: decoded, localAppDirectory: localAppDirectory)
-	}
-
-	public init(
-		workingDirectory: URL,
-		rawData: JSON,
-		localAppDirectory: URL? = nil
-	) async throws {
-		let name = rawData[Keys.name].stringValue ?? "server"
-		let server: APIServer
-		do {
-			server = try APIServer(rawData[Keys.server])
 		} catch {
 			throw AnyError("\(Self.self).initialize: 'server' failed", wrap: error)
 		}
-		let timezone: TimeZone
 		if let v = rawData[Keys.timezone].stringValue {
 			guard let tz = TimeZone(identifier: v) else {
 				throw AnyError("\(Self.self).initialize: invalid timezone: '\(v)'")
 			}
-			timezone = tz
+			self.timezone = tz
+		} else if let timezone {
+			self.timezone = timezone
 		} else {
 			if #available(macOS 13, *) {
-				timezone = .gmt
+				self.timezone = .gmt
 			} else {
-				timezone = .init(secondsFromGMT: 0)!
+				self.timezone = .init(secondsFromGMT: 0)!
 			}
 		}
-		let appSource = AppSource(
-			localAppsPath: localAppDirectory ?? workingDirectory.appendingPathComponent(Self.defaultLocalAppDirectory),
-			config: rawData["app_source"].objectValue)
-
-		var loggers: [String: Logger] = [:]
-		if let rawLoggers = rawData[Keys.logger].objectValue {
-			for it in rawLoggers {
+		if case .object(let raw) = rawData["app_source"] {
+			self.appSource = AppSource(
+				localAppsPath: localAppDirectory ?? workingDirectory.appendingPathComponent(Self.defaultLocalAppDirectory),
+				config: raw)
+		} else {
+			self.appSource = appSource ?? .init(
+				localAppsPath: localAppDirectory ?? workingDirectory.appendingPathComponent(Self.defaultLocalAppDirectory),
+				config: nil)
+		}
+		var loggers: [String: Logger] = loggers ?? [:]
+		if case .object(let raw) = rawData[Keys.logger] {
+			for it in raw {
 				guard let cfg = it.value.objectValue else { continue }
-				let outputs = try await Self.parseLogOutputer(appName: name, config: cfg)
+				let outputs = try await Self.parseLogOutputer(appName: self.name, config: cfg)
 				loggers[it.key] = .init(outputers: outputs, timezone: timezone)
 			}
 		}
-		var metric: Metric?
-		if let raw = rawData[Keys.metric].objectValue {
-			do {
-				let host = raw[Keys.host]?.stringValue ?? "127.0.0.1"
-				let port = raw[Keys.port]?.valueAsInt64 ?? 8125
-				metric = try Metric(host: host, port: Int(port))
-			} catch {
-				throw AnyError("\(Self.self).initialize: metric setup failed", wrap: error)
-			}
-		}
-		let resource: Resource.Config
-		if let cfg = rawData["resources"].objectValue {
-			resource = try .init(cfg)
+		self.loggers = loggers
+		if case .object(let cfg) = rawData["resources"] {
+			self.resource = try .init(cfg)
+		} else if let resource {
+			self.resource = resource
 		} else {
 			throw AnyError("\(Self.self).initialize: resources should be dictionary")
 		}
-		self.init(workingDirectory: workingDirectory,
-				  name: name,
-				  debugFeatures: rawData["debug_features"].objectValue,
-				  server: server,
-				  timezone: timezone, appSource: appSource,
-				  resource: resource, rawData: rawData,
-				  loggers: loggers, metric: metric)
-	}
 
-	public init(
-		workingDirectory: URL,
-		name: String,
-		debugFeatures: [String : JSON]?,
-		server: APIServer,
-		timezone: TimeZone,
-		appSource: AppSource,
-		resource: Resource.Config?,
-		rawData: JSON = [:],
-		loggers: [String : Logger],
-		metric: Metric? = nil
-	) {
-		self.workingDirectory = workingDirectory
-		self.name = name
-		self.debugFeatures = debugFeatures
-		self.server = server
-		self.timezone = timezone
-		self.appSource = appSource
-		self.resource = resource
+		self.debugFeatures = rawData["debug_features"].objectValue
 		self.rawData = rawData
+
 		let def = loggers[Keys.default] ?? Logger()
 		defaultLogger = def
 		startupLogger = loggers["startup"] ?? def
-		self.loggers = loggers
 
 		let verbose = ProcessInfo.processInfo.environment
 			.first(where: { key, _ in key.uppercased() == Keys.RUNTIME_VERBOSE })
@@ -149,9 +115,22 @@ public actor EngineConfig: Sendable {
 			verboseItems.append(contentsOf: verbose.split(separator: ",").map({ $0.lowercased() }))
 		}
 		self.verboseItems = .init(verboseItems)
-		if var metric {
-			metric.verbose = verboseItems.contains("metric")
-			self.metric = metric
+		var metricCFG: Metric.Config?
+		if let raw = rawData[Keys.metric].objectValue {
+			let host = raw[Keys.host]?.stringValue ?? "127.0.0.1"
+			let port = raw[Keys.port]?.valueAsInt64 ?? 8125
+			metricCFG = .init(host: host, port: Int(port))
+		} else {
+			metricCFG = metric
+		}
+		if let metricCFG {
+			do {
+				var metric = try Metric(host: metricCFG.host, port: metricCFG.port)
+				metric.verbose = self.verboseItems.contains("metric")
+				self.metric = metric
+			} catch {
+				throw AnyError("\(Self.self).initialize: metric setup failed", wrap: error)
+			}
 		} else {
 			self.metric = nil
 		}
@@ -216,6 +195,24 @@ public actor EngineConfig: Sendable {
 	
 	public enum Format: String {
 		case json, yaml
+
+		public func decode(_ data: Data) throws -> JSON {
+			let decoded: JSON
+			do {
+				decoded = switch self {
+				case .json:
+					try JSON.Decoder().decode(data)
+				case .yaml:
+					JSON(from: try Yams.load(yaml: String(decoding: data, as: UTF8.self)))
+				}
+			} catch {
+				throw AnyError("decode (\(self)) failed", wrap: error)
+			}
+			guard case .object(_) = decoded else {
+				throw AnyError("data should be \(self) object")
+			}
+			return decoded
+		}
 	}
 	
 	public struct APIServer: Sendable, CustomStringConvertible {
@@ -240,9 +237,9 @@ public actor EngineConfig: Sendable {
 			self.environment = environment
 		}
 
-		public init(_ vs: JSON) throws {
+		public init(_ vs: [String: JSON]) throws {
 			let shutdownTimeout: TimeDuration
-			if let s = vs[Keys.shutdown_timeout].stringValue {
+			if let s = vs[Keys.shutdown_timeout]?.stringValue {
 				do {
 					shutdownTimeout = try TimeDuration.tryParse(s)
 				} catch {
@@ -251,11 +248,11 @@ public actor EngineConfig: Sendable {
 			} else {
 				shutdownTimeout = .seconds(3)
 			}
-			self.init(host: vs[Keys.host].stringValue ?? "0.0.0.0",
-					  port: Int(vs[Keys.port].valueAsInt64 ?? 1080),
-					  reuseAddress: vs[Keys.reuse_address].boolValue ?? true,
+			self.init(host: vs[Keys.host]?.stringValue ?? "0.0.0.0",
+					  port: Int(vs[Keys.port]?.valueAsInt64 ?? 1080),
+					  reuseAddress: vs[Keys.reuse_address]?.boolValue ?? true,
 					  shutdownTimeout: shutdownTimeout,
-					  environment: vs[Keys.environment].stringValue)
+					  environment: vs[Keys.environment]?.stringValue)
 		}
 		
 		public var description: String {

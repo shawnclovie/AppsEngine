@@ -1,3 +1,4 @@
+name: Example
 debug_features:
   all: true
 server:
@@ -8,8 +9,7 @@ resources:
     database:
       sql:
         url: postgres://root:root@127.0.0.1:5432/shared
-      nosql:
-        url: mongodb://127.0.0.1:27017/shared
+      # nosql: {url: mongodb://127.0.0.1:27017/shared}
       sql_readonly:
         url: postgres://root:root@127.0.0.1:5432/shared
     redis:

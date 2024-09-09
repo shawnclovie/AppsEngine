@@ -46,7 +46,7 @@ struct TestModule: Module {
 		static let schema = "test1"
 		@ID(custom: .id)
 		var id: ObjectId?
-		
+
 		@Field(key: "name")
 		var name: String
 		
@@ -149,11 +149,6 @@ struct TestModule: Module {
 				return res
 			}),
 			ClosureMiddleware({ ctx in
-				// reset config
-				if let env = ctx.request?.headers.first(name: Self.headerAppEnv),
-				   let config = await ctx.configSet?.environments[env] {
-//					ctx.reset(userID: nil, config: config)
-				}
 				print("\(ctx.request?.url as Any) m2 before process")
 				var res = await ctx.next()
 				print("\(ctx.request?.url as Any) m2 after process")

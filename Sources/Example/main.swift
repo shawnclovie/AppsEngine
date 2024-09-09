@@ -6,11 +6,11 @@ import Vapor
 
 let resourceURL = Bundle.module.resourceURL!
 // load config
-//let rawConfig = try Data(contentsOf: resourceURL.appendingPathComponent("config.yaml"))
-//let config = try await EngineConfig(workingDirectory: resourceURL, content: rawConfig, format: .yaml)
+let rawData = try Data(contentsOf: resourceURL.appendingPathComponent("config.yaml"))
+let rawConfig = try EngineConfig.Format.yaml.decode(rawData)
 // hard code config
 let timezone = TimeZone(identifier: "Asia/Shanghai")!
-let config = EngineConfig(
+let config = try await EngineConfig(
 	workingDirectory: resourceURL, name: "example",
 	debugFeatures: [Keys.all: .bool(true)],
 	server: .init(port: 3000),
@@ -38,7 +38,8 @@ let config = EngineConfig(
 			])
 	]),
 	loggers: [Keys.default: .init(label: "example", outputers: [LogConsoleOutputer(level: .trace, stream: .stdout)], timezone: timezone)],
-	metric: try .init(host: "127.0.0.1", port: 8125))
+	metric: .init(host: "127.0.0.1", port: 8125),
+	rawData: rawConfig)
 let engine = try await Engine(
 	config: config,
 	modules: [
