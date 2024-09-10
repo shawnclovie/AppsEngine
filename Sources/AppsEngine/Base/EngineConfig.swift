@@ -71,11 +71,7 @@ public actor EngineConfig: Sendable {
 		} else if let timezone {
 			self.timezone = timezone
 		} else {
-			if #available(macOS 13, *) {
-				self.timezone = .gmt
-			} else {
-				self.timezone = .init(secondsFromGMT: 0)!
-			}
+			self.timezone = .init(secondsFromGMT: 0)!
 		}
 		if case .object(let raw) = rawData["app_source"] {
 			self.appSource = AppSource(
