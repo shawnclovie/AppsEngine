@@ -9,12 +9,11 @@ let resourceURL = Bundle.module.resourceURL!
 let rawData = try Data(contentsOf: resourceURL.appendingPathComponent("config.yaml"))
 let rawConfig = try EngineConfig.Format.yaml.decode(rawData)
 // hard code config
-let timezone = TimeZone(identifier: "Asia/Shanghai")!
 let config = try await EngineConfig(
 	workingDirectory: resourceURL, name: "example",
 	debugFeatures: [Keys.all: .bool(true)],
 	server: .init(port: 3000),
-	timezone: timezone,
+	timezone: TimeZone(identifier: "Asia/Shanghai")!,
 	appSource: .init(localAppsPath: resourceURL.appendingPathComponent(EngineConfig.defaultLocalAppDirectory),
 					 pullInterval: .zero),
 	resource: .init(groups: [
@@ -37,7 +36,9 @@ let config = try await EngineConfig(
 					baseURL: "https://dev.aws-s3/foo"),
 			])
 	]),
-	loggers: [Keys.default: .init(label: "example", outputers: [LogConsoleOutputer(level: .trace, stream: .stdout)], timezone: timezone)],
+	loggers: [
+		Keys.default: .init(outputers: [LogConsoleOutputer(minimalLevel: .trace, .stdout)]),
+	],
 	metric: .init(host: "127.0.0.1", port: 8125),
 	rawData: rawConfig)
 let engine = try await Engine(

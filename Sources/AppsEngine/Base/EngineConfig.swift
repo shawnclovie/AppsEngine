@@ -24,7 +24,7 @@ public actor EngineConfig: Sendable {
 	public nonisolated let defaultLogger: Logger
 	public nonisolated let startupLogger: Logger
 
-	let loggers: [String: Logger]
+	private(set) var loggers: [String: Logger] = [:]
 
 	let metric: Metric?
 
@@ -46,7 +46,7 @@ public actor EngineConfig: Sendable {
 		appSource: AppSource? = nil,
 		localAppDirectory: URL? = nil,
 		resource: Resource.Config? = nil,
-		loggers: [String : Logger]? = nil,
+		loggers: [String: Logger]? = nil,
 		metric: Metric.Config? = nil,
 		rawData: JSON = [:]
 	) async throws {
@@ -82,15 +82,20 @@ public actor EngineConfig: Sendable {
 				localAppsPath: localAppDirectory ?? workingDirectory.appendingPathComponent(Self.defaultLocalAppDirectory),
 				config: nil)
 		}
-		var loggers: [String: Logger] = loggers ?? [:]
+		if let loggers {
+			for (key, var logger) in loggers {
+				logger.label = PathComponents.dot(self.name, logger.label).joined()
+				logger.timezone = timezone
+				self.loggers[key] = logger
+			}
+		}
 		if case .object(let raw) = rawData[Keys.logger] {
 			for it in raw {
 				guard let cfg = it.value.objectValue else { continue }
-				let outputs = try await Self.parseLogOutputer(appName: self.name, config: cfg)
-				loggers[it.key] = .init(outputers: outputs, timezone: timezone)
+				let outputs = try await Self.parseLogOutputer(cfg)
+				self.loggers[it.key] = .init(label: self.name, outputers: outputs, timezone: timezone)
 			}
 		}
-		self.loggers = loggers
 		if case .object(let cfg) = rawData["resources"] {
 			self.resource = try .init(cfg)
 		} else if let resource {
@@ -102,9 +107,8 @@ public actor EngineConfig: Sendable {
 		self.debugFeatures = rawData["debug_features"].objectValue
 		self.rawData = rawData
 
-		let def = loggers[Keys.default] ?? Logger()
-		defaultLogger = def
-		startupLogger = loggers["startup"] ?? def
+		defaultLogger = self.loggers[Keys.default] ?? Logger(label: self.name, timezone: timezone)
+		startupLogger = self.loggers["startup"] ?? defaultLogger
 
 		let verbose = ProcessInfo.processInfo.environment
 			.first(where: { key, _ in key.uppercased() == Keys.RUNTIME_VERBOSE })
@@ -134,7 +138,7 @@ public actor EngineConfig: Sendable {
 		}
 	}
 
-	static func parseLogOutputer(appName: String, config: [String: JSON]) async throws -> [LogOutputer] {
+	static func parseLogOutputer(_ config: [String: JSON]) async throws -> [LogOutputer] {
 		var outputers: [LogOutputer] = []
 		for it in config {
 			guard let vs = it.value.objectValue else {
@@ -144,7 +148,7 @@ public actor EngineConfig: Sendable {
 			let output: LogOutputer
 			switch it.key {
 			case "console":
-				output = LogConsoleOutputer(level: level, stream: .init(rawValue: vs["stream"]?.stringValue ?? "") ?? .stdout)
+				output = LogConsoleOutputer(minimalLevel: level, .init(rawValue: vs["stream"]?.stringValue ?? "") ?? .stdout)
 			// TODO: file logger
 //			case "file":
 //				output = parseFileLogger(name, format, level, vs)
@@ -153,7 +157,7 @@ public actor EngineConfig: Sendable {
 					throw AnyError("'log.\(it.key)'.port should > 0")
 				}
 				output = await LogTCPOutputer(
-					level: level,
+					minimalLevel: level,
 					options: .init(host: vs[Keys.host]?.stringValue ?? "127.0.0.1", port: Int(port)))
 			default:
 				throw AnyError("'log.\(it.key)' unknown output type")

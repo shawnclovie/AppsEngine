@@ -3,16 +3,16 @@ import Logging
 import NIOCore
 
 public protocol LogOutputer: Sendable {
-	var level: Log.Level { get set }
+	var minimalLevel: Log.Level { get set }
 	func log(_ log: borrowing Log)
 }
 
 public struct LogClosureOutputer: LogOutputer {
-	public var level: Log.Level
+	public var minimalLevel: Log.Level
 	public let closure: @Sendable (Log) -> Void
 
 	public init(level: Log.Level, closure: @escaping @Sendable (Log) -> Void) {
-		self.level = level
+		self.minimalLevel = level
 		self.closure = closure
 	}
 
@@ -25,10 +25,10 @@ public struct Logger: Sendable {
 
 	public var outputers: [LogOutputer]
 	/// Label or Tag
-	public let label: String?
+	public var label: String?
 	var trace: Trace
 	public var metadata = Logging.Logger.Metadata()
-	public let timezone: TimeZone?
+	public var timezone: TimeZone?
 
 	public init(label: String? = nil, outputers: [LogOutputer] = [], trace: Trace = Trace(nil, on: .zero), timezone: TimeZone? = nil) {
 		self.label = label
@@ -43,7 +43,7 @@ public struct Logger: Sendable {
 
 	public mutating func setLevelToAllOutputers(_ level: Log.Level) {
 		for i in outputers.indices {
-			outputers[i].level = level
+			outputers[i].minimalLevel = level
 		}
 	}
 
@@ -114,7 +114,7 @@ public struct Logger: Sendable {
 	private func marchLevelOutputers(_ level: Log.Level) -> [LogOutputer] {
 		var outputers = [LogOutputer]()
 		for outputer in self.outputers {
-			if level.index.rawValue >= outputer.level.index.rawValue {
+			if level.index.rawValue >= outputer.minimalLevel.index.rawValue {
 				outputers.append(outputer)
 			}
 		}
@@ -159,12 +159,12 @@ extension Logger: LogHandler {
 	public var logLevel: Logging.Logger.Level {
 		get {
 			outputers.reduce(Log.Level.error) { res, outputer in
-				min(res, outputer.level)
+				min(res, outputer.minimalLevel)
 			}.levelForLogging
 		}
 		set(newValue) {
 			for i in 0..<outputers.count {
-				outputers[i].level = .init(fromLogging: newValue)
+				outputers[i].minimalLevel = .init(fromLogging: newValue)
 			}
 		}
 	}

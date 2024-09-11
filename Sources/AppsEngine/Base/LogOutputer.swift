@@ -15,11 +15,11 @@ public struct LogConsoleOutputer: LogOutputer {
 		}
 	}
 
-	public var level: Log.Level
+	public var minimalLevel: Log.Level
 	public let stream: FileHandle
 
-	public init(level: Log.Level, stream: Stream) {
-		self.level = level
+	public init(minimalLevel: Log.Level, _ stream: Stream) {
+		self.minimalLevel = minimalLevel
 		self.stream = stream.stream
 	}
 
@@ -38,11 +38,11 @@ public struct LogConsoleOutputer: LogOutputer {
 }
 
 public struct LogLoggingOutputer: LogOutputer {
-	public var level: Log.Level
+	public var minimalLevel: Log.Level
 	public let logger: Logging.Logger
 
-	public init(level: Log.Level, name: String) {
-		self.level = level
+	public init(minimalLevel: Log.Level, name: String) {
+		self.minimalLevel = minimalLevel
 		logger = .init(label: name)
 	}
 	
@@ -60,11 +60,11 @@ private extension Log.Level {
 }
 
 public struct LogTCPOutputer: LogOutputer {
-	public var level: Log.Level
+	public var minimalLevel: Log.Level
 	public let client: TCPClient
 
-	public init(level: Log.Level, options: TCPClient.Config) async {
-		self.level = level
+	public init(minimalLevel: Log.Level, options: TCPClient.Config) async {
+		self.minimalLevel = minimalLevel
 		client = .init(group: .init(numberOfThreads: 1), config: options)
 		do {
 			try await client.connect()
