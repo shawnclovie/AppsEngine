@@ -23,8 +23,8 @@ public struct Snowflake {
 	private static let nodeMask: Int64 = nodeMax << stepBits
 	private static let stepMask: Int64 = -1 ^ (-1 << stepBits)
 
-	// A Node struct holds the basic information needed for a snowflake generator node
-	public actor Node: Sendable {
+	/// A Node struct holds the basic information needed for a snowflake generator node
+	public final class Node: Sendable {
 		private let node: Int64
 
 		/// The epoch is set to the twitter snowflake epoch of Jan 01 2018 00:00:00 UTC by default.
@@ -33,8 +33,8 @@ public struct Snowflake {
 		///
 		/// By SpotFlake.Time(Date()).flakeTime, you can calculate the epoch.
 		public let epoch: Int64
-		private var time = ManagedAtomic<Int64>(0)
-		private var step = ManagedAtomic<Int64>(0)
+		private let time = ManagedAtomic<Int64>(0)
+		private let step = ManagedAtomic<Int64>(0)
 
 		/// Make new node with a number.
 		///

@@ -45,7 +45,7 @@ final class SnowflakeTests: XCTestCase {
 		let node = Snowflake.Node(node: 1)
 		var ids: Set<Snowflake.ID> = []
 		for _ in 0..<count {
-			ids.insert(await node.generate())
+			ids.insert(node.generate())
 		}
 		XCTAssert(ids.count == count)
 		

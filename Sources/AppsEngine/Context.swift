@@ -22,6 +22,7 @@ public final class Context: Sendable {
 	private let engine: Engine
 	public let configSet: AppConfigSet?
 	public let config: AppConfig
+	public let idGenerator: Snowflake.Node
 	public let traceID: String
 	public let logger: Logger
 	public let startTime: Time
@@ -96,7 +97,8 @@ public final class Context: Sendable {
 		self.engine = engine
 		self.configSet = configSet
 		self.config = config
-		traceID = await engine.config.snowflakeNode.generate().base36
+		idGenerator = await engine.config.snowflakeNode
+		traceID = idGenerator.generate().base36
 		self.startTime = startTime ?? Time(offset: config.timeOffset ?? engine.config.timezone.secondsFromGMT())
 		self.logger = engine.config.defaultLogger.with(
 			label: PathComponents.dot(
