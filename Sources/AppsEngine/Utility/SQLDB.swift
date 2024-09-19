@@ -326,12 +326,17 @@ public struct SQLDB {
 					  callerSkip: UInt = 0,
 					  callFunc: String,
 					  function: String = #function) -> WrapError {
-		var s = SQLSerializer(database: executor)
-		query.query.serialize(to: &s)
+		let (sql, _) = serialize(query.query)
 		return WrapError(.database, error, [
-			"sql": .string(s.sql),
+			"sql": .string(sql),
 			"func": .array([.string(callFunc), .string(function)]),
 		], callerSkip: 2 + callerSkip, maxStack: 2)
+	}
+
+	public func serialize(_ query: SQLExpression) -> (sql: String, binds: [any Encodable & Sendable]) {
+		var s = SQLSerializer(database: executor)
+		query.serialize(to: &s)
+		return (s.sql, s.binds)
 	}
 
 	/// Bind `value` if it is not `SQLExpression`.
