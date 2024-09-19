@@ -56,18 +56,3 @@ extension TimeDuration {
 		.nanoseconds(nanoseconds)
 	}
 }
-
-extension Time: SQLExpression {
-	public func serialize(to serializer: inout SQLSerializer) {
-		serializer.write("'")
-		serializer.write(rfc3339String)
-		serializer.write("'")
-	}
-}
-
-extension SQLColumnUpdateBuilder {
-	@discardableResult
-	public func set(_ column: String, to value: Time) -> Self {
-		set(column, to: value as SQLExpression)
-	}
-}
