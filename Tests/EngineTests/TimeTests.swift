@@ -68,8 +68,8 @@ final class TimeTests: XCTestCase {
 		let timeResult = Time(seconds: 0, nano: 876_543_211)
 		XCTAssert(timeOver == timeResult)
 		
-		let t1 = Time(year: 2020, month: .october, day: 1, hour: 0, minute: 10, second: 10, nano: 2, offset: 0)
-		XCTAssertEqual(t1.clock, .init(hour: 0, minute: 10, second: 10))
+		let t1 = Time(year: 2020, month: .october, day: 1, hour: 0, minute: 10, second: 10, nano: 2000000, offset: 0)
+		XCTAssertEqual(t1.clock, .init(hour: 0, minute: 10, second: 10, millisecond: 2))
 		XCTAssertEqual(t1.add(years: 1, months: 1, days: 1).date,
 					   .init(year: 2021, month: .november, day: 2))
 		XCTAssertEqual(t1.add(years: 1, months: 1, days: 100).date,
@@ -77,6 +77,9 @@ final class TimeTests: XCTestCase {
 		XCTAssertEqual(t1.weekday, .thursday)
 		XCTAssertEqual(t1.weekday.shortName, "Thu")
 		XCTAssertEqual(t1.weekday.name, "Thursday")
+		XCTAssertEqual(t1, Time(unixNano: t1.unixNanoseconds))
+		XCTAssertEqual(t1, Time(unixMicro: t1.unixMicroseconds))
+		XCTAssertEqual(t1, Time(unixMilli: t1.unixMilliseconds))
 		let te = Time(year: 20221014, month: 0, day: 0, hour: 0, minute: 0, second: 0, nano: 0, offset: 0)
 		print(te.asDate)
 		do {

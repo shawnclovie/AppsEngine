@@ -80,8 +80,9 @@ public struct Time: Sendable {
 	}
 
 	public init(unixMicro: Int64, offset: Int) {
-		self.init(unix: unixMicro / 1_000_000,
-		          nano: (unixMicro % 1_000_000) * 1000, offset: offset)
+		self.init(unix: unixMicro / TimeDuration.microsecondsPerSecond,
+				  nano: (unixMicro % TimeDuration.microsecondsPerSecond) * 1000,
+				  offset: offset)
 	}
 
 	@inlinable
@@ -213,11 +214,11 @@ public extension Time {
 	var unixSeconds: Int64 { seconds + internalToUnix }
 
 	var unixMilliseconds: Int64 {
-		unixSeconds * 1000 + Int64(nanoseconds) / 1_000_000
+		unixSeconds * TimeDuration.millisecondsPerSecond + Int64(nanoseconds) / 1_000_000
 	}
 
 	var unixMicroseconds: Int64 {
-		unixSeconds * 1000 + Int64(nanoseconds) / 1000
+		unixSeconds * TimeDuration.microsecondsPerSecond + Int64(nanoseconds) / 1000
 	}
 
 	var unixNanoseconds: Int64 {
