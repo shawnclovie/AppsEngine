@@ -1,18 +1,11 @@
 import AppsEngine
 import Foundation
 import Fluent
-import FluentMongoDriver
 import FluentSQL
-import MongoKitten
 import Vapor
-import MongoDBEngine
 
 extension Resource.Group {
 	func sql() throws -> SQLDB { try sqlDB(of: "sql") }
-	var nosql: Database? { databases["nosql"] }
-	var mongoDB: MongoDatabase? {
-		(nosql as? MongoDatabaseRepresentable)?.raw
-	}
 	var cache: Application.Redis? {
 		redis["shared"]
 	}
@@ -39,22 +32,6 @@ struct TestModule: Module {
 		var name: String
 		var time: Time?
 		var create_time: Time
-	}
-
-	final class T1MongoModel: Codable, Model {
-		
-		static let schema = "test1"
-		@ID(custom: .id)
-		var id: ObjectId?
-
-		@Field(key: "name")
-		var name: String
-		
-		init() {}
-		
-		init(id: ObjectId? = nil, name: String) {
-			self.name = name
-		}
 	}
 
 	var endpoints: [Endpoint] {
@@ -116,27 +93,6 @@ struct TestModule: Module {
 					try await writer.write(.end)
 				}
 			}),
-			Endpoint(.get("nosql"), { ctx in
-				guard let db = ctx.resources.defaultGroup!.nosql else {
-					throw Errors.database
-				}
-				do {
-//					_ = try db[T1MongoModel.schema].deleteAll(where: "" == "").wait()
-					try await T1MongoModel.query(on: db).delete()
-					try await T1MongoModel.query(on: db).delete()
-					for i in 0..<10000 {
-						try await T1MongoModel(name: "\(i)").create(on: db)
-					}
-					let rows = try await db.query(T1MongoModel.self).all()
-					let bytes = try JSONEncoder().encode(rows.count)
-					return .binary(.ok, .init(data: bytes))
-				} catch {
-					throw WrapError(.database, error)
-				}
-			}),
-			.init("mongo.get", .GET, path: "/mongo", respondMongoGet),
-			.init("mongo.post", .POST, path: "/mongo", respondMongoPost),
-			.init("mongo.del", .DELETE, path: "/mongo", respondMongoDelete),
 			// TODO: proxy as a fixed endpoint
 		], middlewares: [
 			ClosureMiddleware({ ctx in
@@ -251,71 +207,6 @@ struct TestModule: Module {
 		let bytes = try JSONEncoder().encode(rows)
 		return .binary(.ok, .init(data: bytes))
 	}
-	
-	struct TestABC: MongoDBModel {
-		static var schema: String { "test_abc" }
-		var modelID: ObjectId
-		var name: String
-		var createTime: Time
-		
-		init(modelID: ObjectId = .init(), name: String, createTime: Time) {
-			self.modelID = modelID
-			self.name = name
-			self.createTime = createTime
-		}
-		
-		init(import document: Document) throws {
-			self.init(modelID: document[Keys._id] as? ObjectId ?? .init(),
-					  name: document[Keys.name] as? String ?? "",
-					  createTime: .from(primitive: document[Keys.create_time]) ?? .zero)
-		}
-		
-		func exportDocument() -> Document {
-			[
-				Keys._id: modelID,
-				Keys.name: name,
-				Keys.create_time: createTime,
-			]
-		}
-	}
-
-	func respondMongoGet(_ ctx: Context) async throws -> HTTPResponse {
-		guard let db = ctx.resources.defaultGroup!.mongoDB else {
-			throw Errors.database
-		}
-		let dbExec = MongoDBExecutor(db: db, logger: ctx.logger)
-		let vs = try await dbExec.loadMany(for: TestABC.self, sort: [Keys.create_time: true]).get()
-		return .json(.ok, JSON.array(vs.map({
-			[Keys.name: .string($0.name), Keys.create_time: $0.createTime.jsonValue]
-		})))
-	}
-
-	func respondMongoPost(_ ctx: Context) async throws -> HTTPResponse {
-		guard let db = ctx.resources.defaultGroup!.mongoDB else {
-			throw Errors.database
-		}
-		let dbExec = MongoDBExecutor(db: db, logger: ctx.logger)
-		let res = await dbExec.insert(TestABC(name: ctx.request?.body.string ?? "", createTime: .utc))
-		if let err = res.error {
-			throw err
-		} else if res.affectCount == 0 {
-			throw WrapError(.internal, AnyError("insert nothing: \(res)"))
-		}
-		return .text(.ok, "\(res)")
-	}
-
-	func respondMongoDelete(_ ctx: Context) async throws -> HTTPResponse {
-		guard let db = ctx.resources.defaultGroup!.mongoDB else {
-			throw Errors.database
-		}
-		let dbExec = MongoDBExecutor(db: db, logger: ctx.logger)
-		var `where` = Document()
-		if let name: String = ctx.request?.query[Keys.name] {
-			`where`[Keys.name] = name
-		}
-		let res = await dbExec.delete(for: TestABC.self, where: `where`)
-		return .text(.ok, "\(res)")
-	}
 
 	var supportEnvironment: Bool { true }
 	
@@ -423,90 +314,66 @@ actor AppInfoHeaderAppDetector: EngineAppDetector {
 	}
 }
 
-struct ServerProcessProvider: ServiceRegisterDataSource {
-	let db: MongoDBExecutor
+struct ServerProcessProvider: Sendable, ServiceRegisterDataSource {
+	public static var schema: String { "server_process" }
 
-	init?(_ engine: Engine) async {
-		guard let db = await engine.resources.defaultGroup!.mongoDB else {
-			return nil
-		}
-		self.db = .init(db: db, logger: engine.config.defaultLogger)
+	let db: SQLDB
+
+	init(_ engine: Engine) async throws {
+		db = try await engine.resources.defaultGroup!.sql()
 	}
 	
 	func loadAllModels() async throws -> [ServiceRegister.Model] {
-		try await db.loadMany(for: ServiceRegister.Model.self).get()
+		let rows = try await db.selectAll(columns: [
+			Keys.node_id,
+			Keys.name,
+			Keys.ip,
+			Keys.worker,
+			Keys.startup_time,
+			Keys.last_rent_time,
+			Keys.extra,
+		], from: Self.schema)
+		return try rows.map { row in
+			.init(nodeID: try row.decode(column: Keys.node_id),
+				  name: try row.decode(column: Keys.name),
+				  ip: try row.decode(column: Keys.ip),
+				  worker: try row.decode(column: Keys.worker),
+				  startupTime: try row.decode(column: Keys.startup_time),
+				  lastRentTime: try row.decode(column: Keys.last_rent_time),
+				  extra: try row.decode(column: Keys.extra))
+		}
 	}
 	
-	func insert(model: ServiceRegister.Model) async -> ServiceRegister.ExecuteResult {
-		var model = model
-		model.extra[Keys._id] = .string(ObjectId().hexString)
-		let result = await db.insert(model)
-		return .init(from: result)
-	}
-	
-	func update(model: ServiceRegister.Model, wasStartupTime: Time) async -> ServiceRegister.ExecuteResult {
-		let result = await db.update(model, where: [
-			Keys.node_id: Int(model.nodeID),
-			Keys.startup_time: wasStartupTime,
-		])
-		return .init(from: result)
-	}
-	
-	func updateRentTime(model: ServiceRegister.Model) async -> ServiceRegister.ExecuteResult {
-		let result = await db.update(for: ServiceRegister.Model.self, set: [
-			Keys.last_rent_time: model.lastRentTime,
-		], unset: nil, where: [
-			Keys.node_id: Int(model.nodeID),
+	func insert(model: ServiceRegister.Model) async throws -> Int {
+		try await db.insert(into: Self.schema, [
+			Keys.node_id: model.nodeID,
+			Keys.name: model.name,
+			Keys.ip: model.ip,
+			Keys.worker: model.worker,
 			Keys.startup_time: model.startupTime,
-		])
-		return .init(from: result)
-	}
-}
-
-extension ServiceRegister.ExecuteResult {
-	init(from result: MongoExecutionResult) {
-		if let error = result.error {
-			self = .failure(error)
-		} else {
-			self = result.affectCount > 0 ? .ok : .notChanged
-		}
-	}
-}
-
-extension ServiceRegister.Model: MongoDBModel {
-	public static var schema: String { "server_process" }
-	
-	public var modelID: ObjectId {
-		let hexedID = extra[Keys._id]?.stringValue ?? ""
-		return .init(hexedID) ?? .init()
+			Keys.last_rent_time: model.lastRentTime,
+			Keys.extra: model.extra,
+		]).affectRows
 	}
 	
-	public init(import doc: Document) throws {
-		self.init(
-			nodeID: UInt16(doc[Keys.node_id] as? Int ?? 0),
-			name: doc[Keys.name] as? String ?? "",
-			ip: doc[Keys.ip] as? String ?? "",
-			worker: doc[Keys.worker] as? String ?? "",
-			startupTime: .from(primitive: doc[Keys.startup_time]) ?? .zero,
-			lastRentTime: .from(primitive: doc[Keys.last_rent_time]) ?? .zero)
-		let rawExtra = doc[Keys.extra] as? Document ?? .init()
-		for key in rawExtra.keys {
-			extra[key] = .from(primitive: rawExtra[key])
-		}
-		if extra[Keys._id] == nil {
-			extra[Keys._id] = .string(ObjectId().hexString)
-		}
+	func update(model: ServiceRegister.Model, wasStartupTime: Time) async throws -> Int {
+		try await db.update(from: Self.schema, fieldAndValues: [
+			Keys.name: model.name,
+			Keys.ip: model.ip,
+			Keys.worker: model.worker,
+			Keys.last_rent_time: model.lastRentTime,
+			Keys.extra: model.extra,
+		], {
+			$0.where(Keys.node_id, .equal, model.nodeID)
+			$0.where(Keys.startup_time, .equal, wasStartupTime)
+		}).affectRows
 	}
 	
-	public func exportDocument() -> Document {
-		return [
-			Keys.node_id: Int(nodeID),
-			Keys.name: name,
-			Keys.ip: ip,
-			Keys.worker: worker,
-			Keys.startup_time: startupTime,
-			Keys.last_rent_time: lastRentTime,
-			Keys.extra: extra.makePrimitive() ?? Document(),
-		]
+	func updateRentTime(model: ServiceRegister.Model) async throws -> Int {
+		try await db.update(from: Self.schema, {
+			$0.set(Keys.last_rent_time, to: model.lastRentTime)
+			$0.where(Keys.node_id, .equal, model.nodeID)
+			$0.where(Keys.startup_time, .equal, model.startupTime)
+		}).affectRows
 	}
 }

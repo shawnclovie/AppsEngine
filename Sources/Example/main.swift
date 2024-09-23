@@ -1,7 +1,6 @@
 import AppsEngine
 import Foundation
 import FluentPostgresDriver
-import FluentMongoDriver
 import Vapor
 
 let resourceURL = Bundle.module.resourceURL!
@@ -85,8 +84,6 @@ let engine = try await Engine(
 		switch config.url.scheme {
 		case "postgres":
 			return try DatabaseConfigurationFactory.postgres(url: config.url).make()
-		case "mongodb":
-			return try DatabaseConfigurationFactory.mongo(settings: .init(config.url.absoluteString)).make()
 		default:
 			throw AnyError("unknown database type '\(config.url.scheme as Any)'")
 		}
@@ -99,7 +96,5 @@ let engine = try await Engine(
 		return try ObjectStorageFileSystemProvider(source: $0, basepath: path)
 	}
 )
-if let it = await ServerProcessProvider(engine) {
-	try await ServiceRegister.initialize(engine.config, dataSource: it)
-}
+//try await ServiceRegister.initialize(engine.config, dataSource: ServerProcessProvider(engine))
 try await engine.runServer(defaultMaxBodySize: "100mb")

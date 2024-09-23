@@ -41,13 +41,14 @@ public extension SocketAddress {
 				socklen_t(0),
 				NI_NUMERICHOST
 			)
-			do {
-				let host = String(cString: hostname)
-				let addr = try SocketAddress(ipAddress: host, port: 0)
-				if case .v4 = addr {
-					address.append(addr)
-				}
-			} catch {}
+			if let host = String(cString: hostname, encoding: .utf8) {
+				do {
+					let addr = try SocketAddress(ipAddress: host, port: 0)
+					if case .v4 = addr {
+						address.append(addr)
+					}
+				} catch {}
+			}
 		}
 		freeifaddrs(ifaddr)
 		return address

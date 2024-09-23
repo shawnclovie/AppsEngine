@@ -9,7 +9,6 @@ resources:
     database:
       sql:
         url: postgres://root:root@127.0.0.1:5432/shared
-      # nosql: {url: mongodb://127.0.0.1:27017/shared}
       sql_readonly:
         url: postgres://root:root@127.0.0.1:5432/shared
     redis:
@@ -29,7 +28,7 @@ resources:
 logger:
   default:
     console: {level: debug, stream: stdout}
-    tcp: {level: info, host: 127.0.0.1, port: 2000, tls: false}
+#    tcp: {level: info, host: 127.0.0.1, port: 2000, tls: false}
   startup:
     console: {level: debug, stream: stdout}
 metric:

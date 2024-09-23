@@ -58,33 +58,3 @@ private extension Log.Level {
 		levelForLogging
 	}
 }
-
-public struct LogTCPOutputer: LogOutputer {
-	public var minimalLevel: Log.Level
-	public let client: TCPClient
-
-	public init(minimalLevel: Log.Level, options: TCPClient.Config) async {
-		self.minimalLevel = minimalLevel
-		client = .init(group: .init(numberOfThreads: 1), config: options)
-		do {
-			try await client.connect()
-		} catch {
-			print("\(self) connect failed: \(error)")
-		}
-	}
-
-	public func log(_ log: borrowing Log) {
-		let log = copy log
-		Task {
-			// FIXME: result cannot received
-			_ = await client.send(log.encodeAsBuffer()).map { res in
-				switch res {
-				case .success(_):
-					break
-				case .failure(let err):
-					print("\(type(of: self)) send failed", err)
-				}
-			}
-		}
-	}
-}

@@ -51,7 +51,8 @@ public actor EngineConfig: Sendable {
 		rawData: JSON = [:]
 	) async throws {
 		self.workingDirectory = workingDirectory
-		self.name = rawData[Keys.name].stringValue ?? name ?? "server"
+		let name = rawData[Keys.name].stringValue ?? name ?? "server"
+		self.name = name
 		do {
 			if case .object(let vs) = rawData[Keys.server] {
 				self.server = try APIServer(vs)
@@ -84,7 +85,7 @@ public actor EngineConfig: Sendable {
 		}
 		if let loggers {
 			for (key, var logger) in loggers {
-				logger.label = PathComponents.dot(self.name, logger.label).joined()
+				logger.label = PathComponents.dot(name, logger.label).joined()
 				logger.timezone = timezone
 				self.loggers[key] = logger
 			}
@@ -107,8 +108,9 @@ public actor EngineConfig: Sendable {
 		self.debugFeatures = rawData["debug_features"].objectValue
 		self.rawData = rawData
 
-		defaultLogger = self.loggers[Keys.default] ?? Logger(label: self.name, timezone: timezone)
-		startupLogger = self.loggers["startup"] ?? defaultLogger
+		let defLogger = self.loggers[Keys.default] ?? Logger(label: name, timezone: timezone)
+		defaultLogger = defLogger
+		startupLogger = self.loggers["startup"] ?? defLogger
 
 		let verbose = ProcessInfo.processInfo.environment
 			.first(where: { key, _ in key.uppercased() == Keys.RUNTIME_VERBOSE })
@@ -152,13 +154,13 @@ public actor EngineConfig: Sendable {
 			// TODO: file logger
 //			case "file":
 //				output = parseFileLogger(name, format, level, vs)
-			case "tcp":
-				guard let port = vs[Keys.port]?.valueAsInt64, port > 0 else {
-					throw AnyError("'log.\(it.key)'.port should > 0")
-				}
-				output = await LogTCPOutputer(
-					minimalLevel: level,
-					options: .init(host: vs[Keys.host]?.stringValue ?? "127.0.0.1", port: Int(port)))
+//			case "tcp":
+//				guard let port = vs[Keys.port]?.valueAsInt64, port > 0 else {
+//					throw AnyError("'log.\(it.key)'.port should > 0")
+//				}
+//				output = await LogTCPOutputer(
+//					minimalLevel: level,
+//					options: .init(host: vs[Keys.host]?.stringValue ?? "127.0.0.1", port: Int(port)))
 			default:
 				throw AnyError("'log.\(it.key)' unknown output type")
 			}

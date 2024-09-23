@@ -71,11 +71,16 @@ public actor Engine {
 		let logger = config.startupLogger.with(label: "\(Self.self)", concat: true)
 		if let res = config.resource {
 			logger.log(.info, "initialize Resource")
-			resources = try await Resource(
-				res,
-				application: application,
-				databaseBuilder: databaseBuilder,
-				storageBuilder: storageBuilder)
+			do {
+				resources = try await Resource(
+					res,
+					application: application,
+					databaseBuilder: databaseBuilder,
+					storageBuilder: storageBuilder)
+			} catch {
+				logger.log(.critical, "initialize Resource failed", .error(error))
+				throw error
+			}
 		} else {
 			resources = .init(groups: [:], storageBuilder: storageBuilder)
 		}
@@ -99,9 +104,6 @@ public actor Engine {
 
 	deinit {
 		application.shutdown()
-		Task {
-			await configProvider.unregister(updateHandler: self)
-		}
 	}
 
 	/// Run Server and respond request.

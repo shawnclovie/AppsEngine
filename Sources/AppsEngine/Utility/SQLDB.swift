@@ -56,7 +56,7 @@ public struct SQLID: RawRepresentable,
 	public var jsonValue: JSON { .string(rawValue) }
 }
 
-public struct SQLDB {
+public struct SQLDB: Sendable {
 	@inlinable
 	public static var null: SQLRaw { SQLRaw("NULL") }
 
@@ -232,15 +232,55 @@ public struct SQLDB {
 		op?(q)
 		return try await execute(q, callFunc: function, onRow: onRow)
 	}
-	
+
+	@discardableResult
+	public func insert(
+		into table: String,
+		_ kv: [String: any Encodable & Sendable],
+		_ op: ((SQLInsertBuilder) -> Void)? = nil,
+		onRow: (@Sendable (SQLRow) -> Void)? = nil,
+		function: String = #function
+	) async throws -> SQLResult {
+		var cols: [String] = []
+		var vals: [any Encodable & Sendable] = []
+		for (k, v) in kv {
+			cols.append(k)
+			vals.append(v)
+		}
+		return try await insert(into: table, columns: cols, values: vals, op, onRow: onRow, function: function)
+	}
+
+	@discardableResult
+	public func insert(
+		into table: String,
+		columns: [String]? = nil,
+		values: [any Encodable & Sendable],
+		_ op: ((SQLInsertBuilder) -> Void)? = nil,
+		onRow: (@Sendable (SQLRow) -> Void)? = nil,
+		function: String = #function
+	) async throws -> SQLResult {
+		let q = executor.insert(into: table).values(values)
+		if let columns {
+			q.columns(columns)
+		}
+		op?(q)
+		return try await execute(q, callFunc: function, onRow: onRow)
+	}
+
 	@discardableResult
 	public func update(
 		from schema: String,
+		fieldAndValues: [String: any Encodable & Sendable]? = nil,
 		_ op: ((SQLUpdateBuilder) throws -> Void),
 		onRow: (@Sendable (SQLRow) -> Void)? = nil,
 		function: String = #function
 	) async throws -> SQLResult {
 		let q = executor.update(schema)
+		if let fieldAndValues {
+			for (k, v) in fieldAndValues {
+				q.set(k, to: v)
+			}
+		}
 		do {
 			try op(q)
 		} catch {
@@ -353,7 +393,7 @@ public struct SQLDB {
 	}
 }
 
-public struct SQLResult {
+public struct SQLResult: Sendable {
 	public let affectRows: Int
 }
 

@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
@@ -9,7 +9,6 @@ let package = Package(
     ],
 	products: [
 		.library(name: "AppsEngine", targets: ["AppsEngine"]),
-		.library(name: "MongoDBEngine", targets: ["MongoDBEngine"]),
 	],
     dependencies: [
 		.package(url: "https://github.com/apple/swift-statsd-client.git",
@@ -24,8 +23,6 @@ let package = Package(
 				 from: "4.4.0"),
 		.package(url: "https://github.com/vapor/fluent-postgres-driver.git",
 				 from: "2.2.2"),
-		.package(url: "https://github.com/vapor/fluent-mongo-driver",
-				 from: "1.0.2"),
 		.package(url: "https://github.com/vapor/redis.git",
 				 from: "4.0.0"),
 		.package(url: "https://github.com/vapor/sql-kit.git",
@@ -53,17 +50,11 @@ let package = Package(
 				.enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
-		.target(name: "MongoDBEngine", dependencies: [
-			.target(name: "AppsEngine"),
-			.product(name: "FluentMongoDriver", package: "fluent-mongo-driver"),
-		]),
         .executableTarget(
 			name: "Example",
 			dependencies: [
-				.product(name: "FluentMongoDriver", package: "fluent-mongo-driver"),
 				.product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
 				.target(name: "AppsEngine"),
-				.target(name: "MongoDBEngine"),
 			],
 			resources: [
 				.process("config.yaml"),

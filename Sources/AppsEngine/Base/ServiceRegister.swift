@@ -8,25 +8,25 @@
 import Foundation
 import NIO
 
-public protocol ServiceRegisterDataSource {
+public protocol ServiceRegisterDataSource: Sendable {
 	var worker: ServiceRegister.Worker { get }
 	
 	func loadAllModels() async throws -> [ServiceRegister.Model]
 
 	/// Insert the model, nodeID should be primiry key or unique index.
-	func insert(model: ServiceRegister.Model) async -> ServiceRegister.ExecuteResult
+	func insert(model: ServiceRegister.Model) async throws -> Int
 
 	/// Update the model, should with condition: `WHERE nodeID=model.nodeID AND startup_time=model.startupTime`
-	func update(model: ServiceRegister.Model, wasStartupTime: Time) async -> ServiceRegister.ExecuteResult
+	func update(model: ServiceRegister.Model, wasStartupTime: Time) async throws -> Int
 
-	func updateRentTime(model: ServiceRegister.Model) async -> ServiceRegister.ExecuteResult
+	func updateRentTime(model: ServiceRegister.Model) async throws -> Int
 }
 
 extension ServiceRegisterDataSource {
 	public var worker: ServiceRegister.Worker { .workingDirectory }
 }
 
-public final class ServiceRegister {
+public actor ServiceRegister {
 	public enum Worker {
 		/// Get worker with last 2 components of working directory.
 		case workingDirectory
@@ -110,13 +110,13 @@ public final class ServiceRegister {
 	/// Initilaize Snowflake node id.
 	/// - Parameters:
 	///   - nodeID: the index would be part of generated snowflake id, it should between [0...1023] (10 bits).
-	public static func resetSnowflake(_ config: EngineConfig, nodeID: UInt16, logger: Logger? = nil) async {
+	public static func resetSnowflake(_ config: EngineConfig, nodeID: Int16, logger: Logger? = nil) async {
 		logger?.log(.info, "\(moduleName) resetSnowflake", .init(Keys.node_id, nodeID))
 		await config.setSnowflake(node: Int64(nodeID))
 	}
 
 	enum RegisterResult {
-		case done(UInt16), retry(WrapError), fallback
+		case done(Int16), retry(WrapError), fallback
 	}
 
 	private func register() async -> RegisterResult {
@@ -127,7 +127,7 @@ public final class ServiceRegister {
 			return .retry(Errors.database.convertOrWrap(error))
 		}
 		let now = Time()
-		var occurNodeIDs = Set<UInt16>()
+		var occurNodeIDs = Set<Int16>()
 		var reuseModel: Model?
 		var canOccurModelIndex: Int?
 		for (i, model) in models.enumerated() {
@@ -156,29 +156,29 @@ public final class ServiceRegister {
 			}
 		}
 		model.updateExtra()
-		let result: ExecuteResult
-		if isCreating {
-			result = await dataSource.insert(model: model)
-		} else {
-			let prevStartupTime = model.startupTime
-			model.updateStartupTime(now: now)
-			result = await dataSource.update(model: model, wasStartupTime: prevStartupTime)
+		let affectCount: Int
+		do {
+			if isCreating {
+				affectCount = try await dataSource.insert(model: model)
+			} else {
+				let prevStartupTime = model.startupTime
+				model.updateStartupTime(now: now)
+				affectCount = try await dataSource.update(model: model, wasStartupTime: prevStartupTime)
+			}
+		} catch {
+			return .retry(Errors.database.convertOrWrap(error))
 		}
-		switch result {
-		case .failure(let err):
-			return .retry(Errors.database.convertOrWrap(err))
-		case .notChanged:
+		if affectCount <= 0 {
 			return .retry(WrapError(.not_modified))
-		case .ok:
-			self.model = model
-			return .done(model.nodeID)
 		}
+		self.model = model
+		return .done(model.nodeID)
 	}
 
-	func findAvailableNodeID(_ occurNodeIDs: Set<UInt16>) -> UInt16? {
+	func findAvailableNodeID(_ occurNodeIDs: Set<Int16>) -> Int16? {
 		for i in 0...Snowflake.nodeMax {
-			if !occurNodeIDs.contains(UInt16(i)) {
-				return UInt16(i)
+			if !occurNodeIDs.contains(Int16(i)) {
+				return Int16(i)
 			}
 		}
 		return nil
@@ -196,18 +196,15 @@ public final class ServiceRegister {
 			return
 		}
 		model.lastRentTime = .utc
-		let result = await dataSource.updateRentTime(model: model)
-		switch result {
-		case .ok:
-			self.model = model
-		case .notChanged:
-			do {
+		do {
+			let affectCount = try await dataSource.updateRentTime(model: model)
+			if affectCount > 0 {
+				self.model = model
+			} else {
 				try await register(logger: config.defaultLogger, initializing: false)
-			} catch {
-				logRendFailure(error)
 			}
-		case .failure(let err):
-			logRendFailure(err)
+		} catch {
+			logRendFailure(error)
 		}
 	}
 	
@@ -218,23 +215,8 @@ public final class ServiceRegister {
 }
 
 extension ServiceRegister {
-	public enum ExecuteResult {
-		case ok
-		case notChanged
-		case failure(Error)
-		
-		public init(from result: Result<Int, Error>) {
-			switch result {
-			case .success(let affectCount):
-				self = affectCount == 0 ? .notChanged : .ok
-			case .failure(let error):
-				self = .failure(error)
-			}
-		}
-	}
-	
-	public struct Model : Sendable{
-		public var nodeID: UInt16
+	public struct Model : Codable, Sendable {
+		public var nodeID: Int16
 		public var name: String
 		public var ip: String
 		public var worker: String
@@ -242,7 +224,7 @@ extension ServiceRegister {
 		public var lastRentTime: Time
 		public var extra: [String: JSON]
 		
-		public init(nodeID: UInt16,
+		public init(nodeID: Int16,
 					name: String, ip: String, worker: String,
 					startupTime: Time, lastRentTime: Time,
 					extra: [String: JSON] = [:]) {
@@ -255,7 +237,7 @@ extension ServiceRegister {
 			self.extra = extra
 		}
 		
-		public init(nodeID: UInt16, name: String, ip: SocketAddress, worker: String, now: Time) {
+		public init(nodeID: Int16, name: String, ip: SocketAddress, worker: String, now: Time) {
 			self.init(nodeID: nodeID, name: name,
 					  ip: ip.ipAddress ?? ip.description, worker: worker,
 					  startupTime: now, lastRentTime: now)
@@ -296,7 +278,7 @@ extension ServiceRegister {
 /// Product node index with LanIP and PID.
 ///
 /// The function may produce duplicate value while multiple deployment.
-private func produceNodeIndexWithPID(ip: SocketAddress) -> UInt16 {
+private func produceNodeIndexWithPID(ip: SocketAddress) -> Int16 {
 	let seedBits: Int64 = 5
 	let maxSeed: Int64 = 1 << seedBits
 
@@ -306,5 +288,5 @@ private func produceNodeIndexWithPID(ip: SocketAddress) -> UInt16 {
 		ipSeed = seed
 	}
 	let pid = ProcessInfo.processInfo.processIdentifier
-	return UInt16((ipSeed % maxSeed) << seedBits) + UInt16(Int64(pid) % maxSeed)
+	return Int16((ipSeed % maxSeed) << seedBits) + Int16(Int64(pid) % maxSeed)
 }
