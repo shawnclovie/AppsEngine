@@ -22,12 +22,6 @@ public func isNumeric(_ v: Any?) -> Bool {
 	}
 }
 
-extension Int64 {
-	public static func from(_ v: Any) -> Self? {
-		anyToInt64(v)
-	}
-}
-
 /// Try to convert basic type to `Int64`.
 ///
 /// Return by parameter's type:
@@ -122,6 +116,31 @@ public func anyToDouble(_ v: Any) -> Double? {
 	case let v as String:		return Double(v)
 	case let v as Substring:	return Double(v)
 	case let v as JSON:			return v.valueAsDouble
+	default:return nil
+	}
+}
+
+public func anyToDecimal(_ v: Any) -> Decimal? {
+	switch v {
+	case let v as Decimal:		return v
+	case let v as NSNumber:		return v.decimalValue
+	case let v as Double:		return Decimal(v)
+	case let v as Float:		return Decimal(Double(v))
+	case let v as CGFloat:		return Decimal(v)
+	case let v as Int64:		return Decimal(v)
+	case let v as Int:			return Decimal(v)
+	case let v as Int8:			return Decimal(v)
+	case let v as Int16:		return Decimal(v)
+	case let v as Int32:		return Decimal(v)
+	case let v as UInt:			return Decimal(v)
+	case let v as UInt8:		return Decimal(v)
+	case let v as UInt16:		return Decimal(v)
+	case let v as UInt32:		return Decimal(v)
+	case let v as UInt64:		return Decimal(v)
+	case let v as Bool:			return v ? 1 : 0
+	case let v as String:		return Decimal(string: v)
+	case let v as Substring:	return Decimal(string: String(v))
+	case let v as JSON:			return v.numberValue
 	default:return nil
 	}
 }
