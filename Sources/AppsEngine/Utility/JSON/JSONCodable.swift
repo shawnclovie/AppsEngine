@@ -107,6 +107,12 @@ extension NSNumber: JSONEncodable {
 	}
 }
 
+extension CFString: JSONEncodable {
+	public var jsonValue: JSON {
+		.string(self as String)
+	}
+}
+
 extension String: JSONEncodable {
 	public var jsonValue: JSON {
 		.string(self)
