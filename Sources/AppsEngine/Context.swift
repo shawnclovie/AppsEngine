@@ -87,12 +87,13 @@ public final class Context: Sendable {
 	let vars = Vars()
 
 	public init(_ engine: Engine,
-		 endpoint: Endpoint? = nil,
-		 request: Request? = nil,
-		 configSet: AppConfigSet?,
-		 _ config: AppConfig,
-		 requestProcessor: RequestProcessor? = nil,
-		 startTime: Time? = nil
+				endpoint: Endpoint? = nil,
+				request: Request? = nil,
+				logSuffix: String? = nil,
+				configSet: AppConfigSet?,
+				_ config: AppConfig,
+				requestProcessor: RequestProcessor? = nil,
+				startTime: Time? = nil
 	) async {
 		self.engine = engine
 		self.configSet = configSet
@@ -104,6 +105,7 @@ public final class Context: Sendable {
 			label: PathComponents.dot(
 				config.appID,
 				request == nil ? nil : "request",
+				logSuffix,
 				traceID).joined(),
 			concat: true,
 			trace: .init(on: self.startTime))
