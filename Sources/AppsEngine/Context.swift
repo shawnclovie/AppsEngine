@@ -19,7 +19,7 @@ public final class Context: Sendable {
 		case websocket_not_supported
 	}
 
-	private let engine: Engine
+	public let engine: Engine
 	public let configSet: AppConfigSet?
 	public let config: AppConfig
 	public let idGenerator: Snowflake.Node
