@@ -126,22 +126,20 @@ struct TestModule: Module {
 		await engine.config.set(TestData.shared)
 	}
 
-	struct ProcessA1: EndpointProducer, RequestInvocation {
-		var routes: [AppsEngine.Endpoint.Route] { [.get("a1")] }
-		var invocation: AppsEngine.Endpoint.Invocation { .request(self) }
+	struct ProcessA1: EndpointProducer {
+		var routes: [Endpoint.Route] { [.get("a1")] }
+		var invocation: Endpoint.Invocation { .requestClosure(respond(to:)) }
 
 		func respond(to ctx: Context) async throws -> HTTPResponse {
 			.text(.ok, "this is \(name)")
 		}
 	}
 
-	struct ProcessA2: EndpointProducer, RequestInvocation {
-		var routes: [AppsEngine.Endpoint.Route] { [.get("a2")] }
-		var invocation: AppsEngine.Endpoint.Invocation { .request(self) }
-
-		func respond(to ctx: Context) async throws -> HTTPResponse {
-			.text(.ok, "this is \(name)")
-		}
+	struct ProcessA2: EndpointProducer {
+		var routes: [Endpoint.Route] { [.get("a2")] }
+		var invocation: Endpoint.Invocation { .requestClosure { ctx in
+			.text(.ok, "this is \(ctx.endpoint?.name as Any)")
+		} }
 	}
 
 	func respond(db ctx: Context) async throws -> HTTPResponse {

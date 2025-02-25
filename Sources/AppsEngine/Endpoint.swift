@@ -29,6 +29,11 @@ public struct Endpoint: EndpointProducer {
 	public enum Invocation: Sendable {
 		case request(RequestInvocation)
 		case webSocket(WebSocketInvocation)
+
+		@inlinable
+		public static func requestClosure(_ fn: @escaping RequestClosure) -> Self {
+			.request(ClosureRequestInvocation(fn))
+		}
 	}
 	
 	public let name: String
@@ -99,8 +104,13 @@ public struct Endpoint: EndpointProducer {
 }
 
 extension Endpoint {
-	public struct Route: Sendable {
-		public struct Component: ExpressibleByStringLiteral, LosslessStringConvertible, CustomStringConvertible, Sendable {
+	public struct Route: Equatable, Hashable, Sendable {
+		public struct Component: ExpressibleByStringLiteral,
+								 LosslessStringConvertible,
+								 CustomStringConvertible,
+								 Equatable,
+								 Hashable,
+								 Sendable {
 			public static func `var`(_ name: String) -> Self {
 				.init(stringLiteral: ":\(name)")
 			}
@@ -175,6 +185,15 @@ extension Endpoint {
 		var name: String {
 			let path = paths.map(\.name).joined(separator: PathComponents.urlSeparator)
 			return "\(method)(\(path))"
+		}
+
+		public static func==(lhs: Self, rhs: Self) -> Bool {
+			lhs.method == rhs.method && lhs.paths == rhs.paths
+		}
+
+		public func hash(into hasher: inout Hasher) {
+			hasher.combine(method.rawValue)
+			hasher.combine(paths)
 		}
 	}
 }
