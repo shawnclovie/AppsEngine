@@ -75,7 +75,7 @@ public struct SQLDB: Sendable {
 		self.executor = executor
 	}
 
-	public func transaction<T>(_ closure: @escaping @Sendable (SQLDB) async throws -> T) async throws -> T {
+	public func transaction<T: Sendable>(_ closure: @escaping @Sendable (SQLDB) async throws -> T) async throws -> T {
 		try await instance.transaction { db in
 			try await closure(SQLDB(instance: db))
 		}
